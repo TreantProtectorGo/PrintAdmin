@@ -26,6 +26,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadableBody(HttpMessageNotReadableException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
-                "Provide a JSON object with a name and an integer monthlyQuota.");
+                "Provide a valid JSON object with the required fields and correct value types.");
     }
 }
