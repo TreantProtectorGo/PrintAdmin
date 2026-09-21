@@ -17,11 +17,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class PrinterApiTests {
+    @Autowired com.ethan.printadmin.repository.PrintJobRepository jobs;
     @Autowired MockMvc mvc;
     @Autowired PrinterRepository printers;
 
     @BeforeEach
-    void clearPrinters() { printers.deleteAll(); }
+    void clearPrinters() { jobs.deleteAll(); printers.deleteAll(); }
 
     @Test
     void createsAndListsSavedPrintersInIdOrder() throws Exception {

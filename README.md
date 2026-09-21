@@ -9,9 +9,11 @@ Implemented:
 - `GET /users`: list saved users ordered by ID, returning HTTP 200.
 - `POST /printers`: save a printer with its name and location, returning HTTP 201.
 - `GET /printers`: list saved printers ordered by ID.
+- `POST /print-jobs`: record a job if the user has enough monthly quota.
+- `GET /print-jobs`: list recorded jobs with user ID, printer ID, pages, and creation time.
 - Invalid input returns HTTP 400 with a JSON problem response.
 
-Print jobs, monthly quota enforcement, and OpenAPI documentation are planned. `monthlyQuota` is currently stored, not enforced against print jobs.
+OpenAPI documentation is planned. Print jobs are accounting records; this API does not send documents to physical printers.
 
 ## Run locally
 
@@ -55,6 +57,24 @@ curl http://localhost:8080/printers
 
 Printer names and locations are required and trimmed before saving. Names allow up to 100 characters and locations up to 200. Duplicate names are allowed; IDs identify printers. These endpoints store printer records only and do not connect to physical printers.
 
+## Print jobs and quotas
+
+Create a user and printer first, then substitute their returned IDs:
+
+```bash
+curl -i http://localhost:8080/print-jobs \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":1,"printerId":1,"pages":80}'
+
+curl http://localhost:8080/print-jobs
+```
+
+With a quota of 100, an 80-page job leaves 20 pages. A further 20-page job succeeds; any more pages in that month are rejected with HTTP 409. Rejected jobs are not saved. Missing users or printers return 404. Missing or nonpositive IDs/page counts return 400.
+
+Usage is summed per user across all printers. Months follow `printadmin.quota-zone` (default `Asia/Hong_Kong`), from local midnight on the first day inclusive to the next month's start exclusive. Timestamps are assigned by the server and stored as instants. A new month gets a fresh allowance without deleting old jobs or running a reset task.
+
+The quota check and insert run in one transaction. A pessimistic write lock on the user row serializes that user's submissions, preventing two concurrent requests from spending the same allowance. This protection applies to writes through this service; direct database inserts bypass it.
+
 ## Structure
 
 `UserController -> UserService -> UserRepository -> PostgreSQL`
@@ -67,6 +87,6 @@ The controller handles HTTP requests and validates input. The service creates us
 ./mvnw test
 ```
 
-Tests activate the `test` profile and use an isolated H2 in-memory database in PostgreSQL compatibility mode. They cover create/list persistence, empty lists, invalid input, zero quota, malformed JSON, and printer field length limits. They do not connect to or delete data from your local PostgreSQL database. H2 tests do not replace a PostgreSQL smoke check.
+Tests activate the `test` profile and use an isolated H2 in-memory database in PostgreSQL compatibility mode. They cover create/list persistence, empty lists, invalid input, zero quota, malformed JSON, and printer field length limits. They do not connect to or delete data from your local PostgreSQL database. Print-job tests cover exact quota, over-quota rejection, month boundaries, separate users, missing references, validation, and concurrent submissions. H2 tests do not replace a PostgreSQL smoke check, particularly for locking behavior.
 
 `ddl-auto=update` is a convenience for local learning, not a production migration strategy. There is no authentication yet; run this checkpoint locally.
