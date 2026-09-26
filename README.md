@@ -5,6 +5,7 @@ A Java 21 / Spring Boot / PostgreSQL print quota API inspired by school IT suppo
 ## Current features
 
 Implemented:
+
 - `POST /users`: validate and save a user, returning HTTP 201 and a generated ID.
 - `GET /users`: list saved users ordered by ID, returning HTTP 200.
 - `POST /printers`: save a printer with its name and location, returning HTTP 201.
@@ -13,7 +14,7 @@ Implemented:
 - `GET /print-jobs`: list recorded jobs with user ID, printer ID, pages, and creation time.
 - Invalid input returns HTTP 400 with a JSON problem response.
 
-OpenAPI documentation is planned. Print jobs are accounting records; this API does not send documents to physical printers.
+Print jobs are accounting records; this API does not send documents to physical printers.
 
 ## Run locally
 
@@ -75,6 +76,17 @@ Usage is summed per user across all printers. Months follow `printadmin.quota-zo
 
 The quota check and insert run in one transaction. A pessimistic write lock on the user row serializes that user's submissions, preventing two concurrent requests from spending the same allowance. This protection applies to writes through this service; direct database inserts bypass it.
 
+## API documentation
+
+Start the application, then open [Swagger UI](http://localhost:8080/swagger-ui.html).
+The OpenAPI JSON is available at [`/v3/api-docs`](http://localhost:8080/v3/api-docs).
+
+Use **Try it out** to create a user and printer. Copy their generated IDs into the print-job request. Swagger sends real requests, so each successful POST creates a database row.
+
+For a user with a quota of 100, submit 80 pages, then 20, then 1. The first two requests should return 201; the last should return 409 without saving a job. List print jobs to confirm the two accepted records.
+
+The docs include request examples, required fields, and the 400, 404, and 409 error responses. The UI is provided by [springdoc-openapi](https://springdoc.org/getting-started.html).
+
 ## Structure
 
 `UserController -> UserService -> UserRepository -> PostgreSQL`
@@ -87,6 +99,14 @@ The controller handles HTTP requests and validates input. The service creates us
 ./mvnw test
 ```
 
-Tests activate the `test` profile and use an isolated H2 in-memory database in PostgreSQL compatibility mode. They cover create/list persistence, empty lists, invalid input, zero quota, malformed JSON, and printer field length limits. They do not connect to or delete data from your local PostgreSQL database. Print-job tests cover exact quota, over-quota rejection, month boundaries, separate users, missing references, validation, and concurrent submissions. H2 tests do not replace a PostgreSQL smoke check, particularly for locking behavior.
+Tests activate the `test` profile and use an isolated H2 in-memory database in PostgreSQL compatibility mode. They cover create/list persistence, empty lists, invalid input, zero quota, malformed JSON, and printer field length limits. They do not connect to or delete data from your local PostgreSQL database. Print-job tests cover exact quota, over-quota rejection, month boundaries, separate users, missing references, validation, and concurrent submissions. To run the same suite against a temporary PostgreSQL server:
+
+```bash
+./mvnw test -Dspring.profiles.include=postgres-test
+```
+
+The PostgreSQL test configuration starts an isolated PostgreSQL 14.22 database on a random port and closes it when the Spring context shuts down. It does not use `DB_URL` or connect to your local `printadmin` database. Native binaries are downloaded as test dependencies; Docker is not required. Run tests as a normal user, not root.
+
+Verified on 26 September 2026: all 19 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the six API endpoints, quota boundaries, simultaneous submissions, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
 
 `ddl-auto=update` is a convenience for local learning, not a production migration strategy. There is no authentication yet; run this checkpoint locally.

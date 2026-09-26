@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import(PrintJobApiTests.FixedTime.class)
+@Import({PrintJobApiTests.FixedTime.class, PostgresTestConfiguration.class})
 class PrintJobApiTests {
     private static final Instant NOW = Instant.parse("2026-09-15T04:00:00Z");
     @TestConfiguration

@@ -4,11 +4,18 @@ import com.ethan.printadmin.dto.CreateUserRequest;
 import com.ethan.printadmin.model.User;
 import com.ethan.printadmin.service.UserService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Tag(name = "Users")
 @RestController
 @RequestMapping("/users")
 public class UserController {
@@ -18,11 +25,16 @@ public class UserController {
         this.userService = userService;
     }
 
+    @Operation(summary = "List users")
     @GetMapping
     public List<User> getUsers() {
         return userService.getUsers();
     }
 
+    @Operation(summary = "Create a user")
+    @ApiResponse(responseCode = "201", description = "Created")
+    @ApiResponse(responseCode = "400", description = "Invalid request",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public User createUser(@Valid @RequestBody CreateUserRequest request) {
