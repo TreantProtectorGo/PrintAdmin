@@ -123,6 +123,68 @@ class PrintJobApiTests {
     }
 
     @Test
+    void usageStartsAtZeroAndIncludesAcceptedJobsOnly() throws Exception {
+        mvc.perform(get("/users/{id}/usage", user.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(user.getId()))
+                .andExpect(jsonPath("$.monthlyQuota").value(100))
+                .andExpect(jsonPath("$.usedPages").value(0))
+                .andExpect(jsonPath("$.remainingPages").value(100));
+        service.createPrintJob(new CreatePrintJobRequest(user.getId(), printer.getId(), 80));
+        mvc.perform(post("/print-jobs").contentType("application/json")
+                .content(request(user.getId(), printer.getId(), 21)))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/users/{id}/usage", user.getId()))
+                .andExpect(jsonPath("$.usedPages").value(80))
+                .andExpect(jsonPath("$.remainingPages").value(20));
+        service.createPrintJob(new CreatePrintJobRequest(user.getId(), printer.getId(), 20));
+        mvc.perform(get("/users/{id}/usage", user.getId()))
+                .andExpect(jsonPath("$.usedPages").value(100))
+                .andExpect(jsonPath("$.remainingPages").value(0));
+        assertThat(jobs.count()).isEqualTo(2);
+    }
+
+    @Test
+    void usageFiltersByUserAndMonthAcrossAllPrinters() throws Exception {
+        Instant start = Instant.parse("2026-08-31T16:00:00Z");
+        Instant end = Instant.parse("2026-09-30T16:00:00Z");
+        Printer second = printers.save(new Printer("Library", "1/F"));
+        User other = users.save(new User("Alex", 100));
+        jobs.save(new PrintJob(user, printer, 100, start.minusSeconds(1)));
+        jobs.save(new PrintJob(user, printer, 30, start));
+        jobs.save(new PrintJob(user, second, 20, end.minusSeconds(1)));
+        jobs.save(new PrintJob(user, printer, 100, end));
+        jobs.save(new PrintJob(other, printer, 100, NOW));
+        mvc.perform(get("/users/{id}/usage", user.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usedPages").value(50))
+                .andExpect(jsonPath("$.remainingPages").value(50));
+    }
+
+    @Test
+    void usageHandlesZeroQuotaAndMissingUser() throws Exception {
+        User zero = users.save(new User("Zero", 0));
+        mvc.perform(get("/users/{id}/usage", zero.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usedPages").value(0))
+                .andExpect(jsonPath("$.remainingPages").value(0));
+        mvc.perform(get("/users/{id}/usage", Long.MAX_VALUE))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("User not found."));
+        mvc.perform(get("/users/not-a-number/usage")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void usageNeverReportsNegativeRemainingPages() throws Exception {
+        // Simulate historical data imported outside the quota-checked API.
+        jobs.save(new PrintJob(user, printer, 120, NOW));
+        mvc.perform(get("/users/{id}/usage", user.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usedPages").value(120))
+                .andExpect(jsonPath("$.remainingPages").value(0));
+    }
+
+    @Test
     void simultaneousSubmissionsCannotExceedQuota() throws Exception {
         CountDownLatch start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {

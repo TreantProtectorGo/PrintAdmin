@@ -1,6 +1,8 @@
 package com.ethan.printadmin.service;
 
 import com.ethan.printadmin.dto.CreateUserRequest;
+import com.ethan.printadmin.dto.UserUsageResponse;
+import com.ethan.printadmin.exception.ResourceNotFoundException;
 import com.ethan.printadmin.model.User;
 import com.ethan.printadmin.repository.UserRepository;
 import org.springframework.data.domain.Sort;
@@ -13,13 +15,23 @@ import java.util.List;
 public class UserService {
     private final UserRepository userRepository;
 
-    public UserService(UserRepository userRepository) {
+    private final MonthlyUsageService usage;
+
+    public UserService(UserRepository userRepository, MonthlyUsageService usage) {
         this.userRepository = userRepository;
+        this.usage = usage;
     }
 
     @Transactional(readOnly = true)
     public List<User> getUsers() {
         return userRepository.findAll(Sort.by("id"));
+    }
+
+    @Transactional(readOnly = true)
+    public UserUsageResponse getUsage(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        return usage.getUsage(user);
     }
 
     @Transactional

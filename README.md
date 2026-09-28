@@ -8,6 +8,7 @@ Implemented:
 
 - `POST /users`: validate and save a user, returning HTTP 201 and a generated ID.
 - `GET /users`: list saved users ordered by ID, returning HTTP 200.
+- `GET /users/{id}/usage`: show the current monthly quota, usage, and remaining pages.
 - `POST /printers`: save a printer with its name and location, returning HTTP 201.
 - `GET /printers`: list saved printers ordered by ID.
 - `POST /print-jobs`: record a job if the user has enough monthly quota.
@@ -76,6 +77,29 @@ Usage is summed per user across all printers. Months follow `printadmin.quota-zo
 
 The quota check and insert run in one transaction. A pessimistic write lock on the user row serializes that user's submissions, preventing two concurrent requests from spending the same allowance. This protection applies to writes through this service; direct database inserts bypass it.
 
+## Monthly usage
+
+Use a user ID returned by `POST /users`:
+
+```bash
+curl http://localhost:8080/users/1/usage
+```
+
+For a user with a quota of 100 who has printed 80 pages this month:
+
+```json
+{
+  "userId": 1,
+  "monthlyQuota": 100,
+  "usedPages": 80,
+  "remainingPages": 20
+}
+```
+
+Usage includes accepted jobs across all printers within the configured calendar month. Rejected jobs are not counted. New users have zero usage; unknown user IDs return 404. Remaining pages are clamped to zero if historical or directly imported jobs exceed the quota.
+
+This read-only endpoint uses the same month calculation as print-job submission. It does not reset data or reserve pages: another job may use the remaining allowance after the response is returned.
+
 ## API documentation
 
 Start the application, then open [Swagger UI](http://localhost:8080/swagger-ui.html).
@@ -107,6 +131,6 @@ Tests activate the `test` profile and use an isolated H2 in-memory database in P
 
 The PostgreSQL test configuration starts an isolated PostgreSQL 14.22 database on a random port and closes it when the Spring context shuts down. It does not use `DB_URL` or connect to your local `printadmin` database. Native binaries are downloaded as test dependencies; Docker is not required. Run tests as a normal user, not root.
 
-Verified on 26 September 2026: all 19 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the six API endpoints, quota boundaries, simultaneous submissions, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
+Verified on 28 September 2026: all 23 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the seven API endpoints, quota boundaries, simultaneous submissions, monthly usage summaries, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
 
 `ddl-auto=update` is a convenience for local learning, not a production migration strategy. There is no authentication yet; run this checkpoint locally.

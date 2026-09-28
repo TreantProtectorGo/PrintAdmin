@@ -1,6 +1,7 @@
 package com.ethan.printadmin.controller;
 
 import com.ethan.printadmin.dto.CreateUserRequest;
+import com.ethan.printadmin.dto.UserUsageResponse;
 import com.ethan.printadmin.model.User;
 import com.ethan.printadmin.service.UserService;
 import jakarta.validation.Valid;
@@ -29,6 +30,16 @@ public class UserController {
     @GetMapping
     public List<User> getUsers() {
         return userService.getUsers();
+    }
+
+    @Operation(summary = "Get current monthly usage",
+            description = "Pages used across all printers in the configured calendar month. Remaining pages never fall below zero.")
+    @ApiResponse(responseCode = "200", description = "Current usage")
+    @ApiResponse(responseCode = "404", description = "User not found",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
+    @GetMapping("/{id}/usage")
+    public UserUsageResponse getUsage(@PathVariable Long id) {
+        return userService.getUsage(id);
     }
 
     @Operation(summary = "Create a user")

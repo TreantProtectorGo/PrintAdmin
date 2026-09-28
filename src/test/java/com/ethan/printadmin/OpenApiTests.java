@@ -29,6 +29,8 @@ class OpenApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.info.title").value("PrintAdmin API"))
                 .andExpect(jsonPath("$.paths['/users'].get").exists())
+                .andExpect(jsonPath("$.paths['/users/{id}/usage'].get.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/users/{id}/usage'].get.responses['404']").exists())
                 .andExpect(jsonPath("$.paths['/users'].post").exists())
                 .andExpect(jsonPath("$.paths['/printers'].get").exists())
                 .andExpect(jsonPath("$.paths['/printers'].post").exists())
