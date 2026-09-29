@@ -134,3 +134,16 @@ The PostgreSQL test configuration starts an isolated PostgreSQL 14.22 database o
 Verified on 28 September 2026: all 23 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the seven API endpoints, quota boundaries, simultaneous submissions, monthly usage summaries, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
 
 `ddl-auto=update` is a convenience for local learning, not a production migration strategy. There is no authentication yet; run this checkpoint locally.
+
+## Build and CI
+
+Package the application with Java 21:
+
+```bash
+./mvnw clean verify
+java -jar target/printadmin-0.0.1-SNAPSHOT.jar
+```
+
+`verify` runs the tests and creates a Spring Boot JAR containing the application and its runtime dependencies. Running the JAR requires PostgreSQL, using the same `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` settings as `spring-boot:run`. Test databases and test-only libraries are not included in the JAR.
+
+[GitHub Actions](https://github.com/TreantProtectorGo/PrintAdmin/actions/workflows/ci.yml) runs on pushes to `main`, pull requests, and manual dispatch. Two jobs build the JAR and run the test suite with Java 21: one uses H2, the other starts a temporary PostgreSQL database. A failed test fails the job. This workflow verifies the build; it does not deploy the application.
