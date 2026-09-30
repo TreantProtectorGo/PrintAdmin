@@ -39,3 +39,24 @@ jobs:
         env:
           MAVEN_TEST_ARGUMENTS: ${{ matrix.arguments }}
         run: ./mvnw --batch-mode --no-transfer-progress verify $MAVEN_TEST_ARGUMENTS
+
+  docker:
+    name: Docker smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: printadmin-ci
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Start application and PostgreSQL
+        run: docker compose up --build -d --wait
+      - name: Verify API and persistence
+        run: python3 scripts/docker-smoke.py
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Remove test containers and volume
+        if: always()
+        run: docker compose down --volumes

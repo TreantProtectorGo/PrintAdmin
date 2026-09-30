@@ -147,3 +147,40 @@ java -jar target/printadmin-0.0.1-SNAPSHOT.jar
 `verify` runs the tests and creates a Spring Boot JAR containing the application and its runtime dependencies. Running the JAR requires PostgreSQL, using the same `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` settings as `spring-boot:run`. Test databases and test-only libraries are not included in the JAR.
 
 [GitHub Actions](https://github.com/TreantProtectorGo/PrintAdmin/actions/workflows/ci.yml) runs on pushes to `main`, pull requests, and manual dispatch. Two jobs build the JAR and run the test suite with Java 21: one uses H2, the other starts a temporary PostgreSQL database. A failed test fails the job. This workflow verifies the build; it does not deploy the application.
+
+## Run with Docker
+
+With Docker and Docker Compose running:
+
+```bash
+docker compose up --build -d
+```
+
+Open [Swagger UI](http://localhost:8080/swagger-ui.html). The first build downloads Java, Maven dependencies, and PostgreSQL, so startup takes longer. No host Java or PostgreSQL installation is needed.
+
+Compose builds the application in a JDK image and runs the resulting JAR as a non-root user in a smaller JRE image. PostgreSQL 17 starts first; the application waits for its health check. The API is bound to localhost, and the database port is not published to the host. This setup is for local development, without authentication or TLS.
+
+If port 8080 is in use:
+
+```bash
+PRINTADMIN_PORT=8081 docker compose up -d
+```
+
+The default database password is `printadmin-local`, for this local container database only. Set `POSTGRES_PASSWORD` before the first start to use a different password. Changing that variable later does not change the password inside an existing database volume.
+
+```bash
+docker compose logs -f app
+docker compose down
+```
+
+`down` removes the containers but keeps data in the named volume. Starting again restores the saved records. To intentionally erase this Docker database, run `docker compose down --volumes`. This database is separate from any PostgreSQL installation on your Mac.
+
+CI also builds and starts this stack, tests the API and quota rejection, then recreates both containers to verify that saved data survives. To run the same smoke test locally against a disposable stack:
+
+```bash
+COMPOSE_PROJECT_NAME=printadmin-smoke PRINTADMIN_PORT=8081 docker compose up --build -d --wait
+COMPOSE_PROJECT_NAME=printadmin-smoke PRINTADMIN_PORT=8081 python3 scripts/docker-smoke.py
+COMPOSE_PROJECT_NAME=printadmin-smoke PRINTADMIN_PORT=8081 docker compose down --volumes
+```
+
+The smoke test creates sample users, printers, and jobs and recreates the selected Compose stack. Use the same project name and port for all three commands.
