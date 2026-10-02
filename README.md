@@ -184,3 +184,9 @@ COMPOSE_PROJECT_NAME=printadmin-smoke PRINTADMIN_PORT=8081 docker compose down -
 ```
 
 The smoke test creates sample users, printers, and jobs and recreates the selected Compose stack. Use the same project name and port for all three commands.
+
+## Demonstration
+
+With the API running, run `python3 scripts/demo.py` to demonstrate accepted jobs, quota rejection, validation, and usage totals. Each run adds a new demo user, printer, and two jobs; existing records are left intact. Use `--base-url http://localhost:8081` for another port.
+
+The [project walkthrough](docs/walkthrough.md) explains the expected responses, request flow, data model, and current limitations. CI runs the demo twice against the Docker stack to check that it works with existing data.
