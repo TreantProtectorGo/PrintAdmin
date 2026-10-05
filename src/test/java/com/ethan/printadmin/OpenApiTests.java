@@ -34,7 +34,9 @@ class OpenApiTests {
                 .andExpect(jsonPath("$.paths['/users'].post").exists())
                 .andExpect(jsonPath("$.paths['/printers'].get").exists())
                 .andExpect(jsonPath("$.paths['/printers'].post").exists())
-                .andExpect(jsonPath("$.paths['/print-jobs'].get").exists())
+                .andExpect(jsonPath("$.paths['/print-jobs'].get.parameters[*].name",
+                        org.hamcrest.Matchers.containsInAnyOrder("userId", "printerId", "month")))
+                .andExpect(jsonPath("$.paths['/print-jobs'].get.responses['400']").exists())
                 .andExpect(jsonPath("$.paths['/print-jobs'].post.responses['201']").exists())
                 .andExpect(jsonPath("$.paths['/print-jobs'].post.responses['400']").exists())
                 .andExpect(jsonPath("$.paths['/print-jobs'].post.responses['404']").exists())

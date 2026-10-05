@@ -185,6 +185,62 @@ class PrintJobApiTests {
     }
 
     @Test
+    void historyFiltersCombineAndKeepIdOrder() throws Exception {
+        User other = users.save(new User("Alex", 100));
+        Printer second = printers.save(new Printer("Library", "1/F"));
+        jobs.save(new PrintJob(user, printer, 10, NOW));
+        jobs.save(new PrintJob(other, printer, 20, NOW));
+        jobs.save(new PrintJob(user, second, 30, NOW));
+        jobs.save(new PrintJob(user, printer, 40, NOW));
+        mvc.perform(get("/print-jobs").param("userId", user.getId().toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3));
+        mvc.perform(get("/print-jobs").param("printerId", printer.getId().toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3));
+        mvc.perform(get("/print-jobs").param("userId", user.getId().toString())
+                .param("printerId", printer.getId().toString()).param("month", "2026-09"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].pages").value(10))
+                .andExpect(jsonPath("$[1].pages").value(40));
+        for (String field : new String[]{"userId", "printerId"}) {
+            mvc.perform(get("/print-jobs").param(field, Long.toString(Long.MAX_VALUE)))
+                    .andExpect(status().isOk()).andExpect(content().json("[]"));
+        }
+        mvc.perform(get("/print-jobs")).andExpect(jsonPath("$.length()").value(4));
+    }
+
+    @Test
+    void historyMonthUsesHongKongBoundariesIncludingYearRollover() throws Exception {
+        Instant start = Instant.parse("2026-12-31T16:00:00Z");
+        Instant end = Instant.parse("2027-01-31T16:00:00Z");
+        jobs.save(new PrintJob(user, printer, 1, start.minusSeconds(1)));
+        jobs.save(new PrintJob(user, printer, 2, start));
+        jobs.save(new PrintJob(user, printer, 3, end.minusSeconds(1)));
+        jobs.save(new PrintJob(user, printer, 4, end));
+        mvc.perform(get("/print-jobs").param("month", "2027-01"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].pages").value(2))
+                .andExpect(jsonPath("$[1].pages").value(3));
+        mvc.perform(get("/print-jobs").param("month", "2026-09"))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test
+    void invalidHistoryFiltersReturnProblemDetails() throws Exception {
+        for (String month : new String[]{"", "2026-9", "2026-13", "0000-01", "September", "2026-09-01"}) {
+            mvc.perform(get("/print-jobs").param("month", month))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                    .andExpect(jsonPath("$.detail").exists());
+        }
+        for (String field : new String[]{"userId", "printerId"}) {
+            for (String value : new String[]{"0", "-1", "abc", "9223372036854775808"}) {
+                mvc.perform(get("/print-jobs").param(field, value))
+                        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.detail").exists());
+            }
+        }
+    }
+
+    @Test
     void simultaneousSubmissionsCannotExceedQuota() throws Exception {
         CountDownLatch start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {

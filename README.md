@@ -12,7 +12,7 @@ Implemented:
 - `POST /printers`: save a printer with its name and location, returning HTTP 201.
 - `GET /printers`: list saved printers ordered by ID.
 - `POST /print-jobs`: record a job if the user has enough monthly quota.
-- `GET /print-jobs`: list recorded jobs with user ID, printer ID, pages, and creation time.
+- `GET /print-jobs`: list recorded jobs; optionally filter by `userId`, `printerId`, and `month` (YYYY-MM).
 - Invalid input returns HTTP 400 with a JSON problem response.
 
 Print jobs are accounting records; this API does not send documents to physical printers.
@@ -69,6 +69,7 @@ curl -i http://localhost:8080/print-jobs \
   -d '{"userId":1,"printerId":1,"pages":80}'
 
 curl http://localhost:8080/print-jobs
+curl "http://localhost:8080/print-jobs?userId=1&printerId=1&month=2026-09"
 ```
 
 With a quota of 100, an 80-page job leaves 20 pages. A further 20-page job succeeds; any more pages in that month are rejected with HTTP 409. Rejected jobs are not saved. Missing users or printers return 404. Missing or nonpositive IDs/page counts return 400.
@@ -131,7 +132,7 @@ Tests activate the `test` profile and use an isolated H2 in-memory database in P
 
 The PostgreSQL test configuration starts an isolated PostgreSQL 14.22 database on a random port and closes it when the Spring context shuts down. It does not use `DB_URL` or connect to your local `printadmin` database. Native binaries are downloaded as test dependencies; Docker is not required. Run tests as a normal user, not root.
 
-Verified on 28 September 2026: all 23 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the seven API endpoints, quota boundaries, simultaneous submissions, monthly usage summaries, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
+Verified on 5 October 2026: all 26 tests passed on both H2 and PostgreSQL 14.22. Both runs cover the seven API endpoints, quota boundaries, simultaneous submissions, monthly usage summaries, and Swagger routes. A database-engine assertion ensures the PostgreSQL run actually uses PostgreSQL.
 
 `ddl-auto=update` is a convenience for local learning, not a production migration strategy. There is no authentication yet; run this checkpoint locally.
 
@@ -190,3 +191,9 @@ The smoke test creates sample users, printers, and jobs and recreates the select
 With the API running, run `python3 scripts/demo.py` to demonstrate accepted jobs, quota rejection, validation, and usage totals. Each run adds a new demo user, printer, and two jobs; existing records are left intact. Use `--base-url http://localhost:8081` for another port.
 
 The [project walkthrough](docs/walkthrough.md) explains the expected responses, request flow, data model, and current limitations. CI runs the demo twice against the Docker stack to check that it works with existing data.
+
+### Print-job history filters
+
+Filters are optional and combine with AND. Without filters, the endpoint returns all jobs as before, ordered by ID. A valid ID with no matching jobs returns `[]`. Invalid IDs or months return HTTP 400 with problem details.
+
+The month filter uses `printadmin.quota-zone` (Asia/Hong_Kong by default), matching quota calculations. It includes the first instant of the month and excludes the first instant of the next month. For example, September starts at `2026-08-31T16:00:00Z` in Hong Kong. Filtering history does not change usage totals or quota enforcement.

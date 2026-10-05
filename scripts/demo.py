@@ -47,7 +47,7 @@ def run_demo(base_url):
         request(base_url, "/print-jobs", status, {**job, "pages": pages})
         print(f"Submit {pages} pages -> HTTP {status}")
         check_usage(base_url, user["id"], used, remaining)
-    jobs = [item for item in request(base_url, "/print-jobs") if item["userId"] == user["id"]]
+    jobs = request(base_url, f"/print-jobs?userId={user['id']}&printerId={printer['id']}")
     if sorted(item["pages"] for item in jobs) != [20, 80]:
         raise RuntimeError(f"Expected only the two accepted jobs, got: {jobs}")
     print("Demo passed: only the 80-page and 20-page jobs were saved.")

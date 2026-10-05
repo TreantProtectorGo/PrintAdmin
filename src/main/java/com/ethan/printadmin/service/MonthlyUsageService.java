@@ -21,11 +21,17 @@ public class MonthlyUsageService {
     }
 
     public long usedPages(Long userId, Instant now) {
-        LocalDate firstDay = now.atZone(quotaZone).toLocalDate().withDayOfMonth(1);
-        Instant start = firstDay.atStartOfDay(quotaZone).toInstant();
-        Instant end = firstDay.plusMonths(1).atStartOfDay(quotaZone).toInstant();
-        return jobs.usedPages(userId, start, end);
+        MonthRange range = monthRange(YearMonth.from(now.atZone(quotaZone)));
+        return jobs.usedPages(userId, range.start(), range.end());
     }
+
+    public MonthRange monthRange(YearMonth month) {
+        Instant start = month.atDay(1).atStartOfDay(quotaZone).toInstant();
+        Instant end = month.plusMonths(1).atDay(1).atStartOfDay(quotaZone).toInstant();
+        return new MonthRange(start, end);
+    }
+
+    public record MonthRange(Instant start, Instant end) {}
 
     public UserUsageResponse getUsage(User user) {
         long used = usedPages(user.getId(), clock.instant());

@@ -68,3 +68,11 @@ Usage is calculated from job records rather than stored in a separate counter. O
 Trace the 30-page rejection above through the service and repository. Then explain why the transaction alone would not prevent two simultaneous submissions from using the same remaining quota without locking.
 
 To check your understanding, change the demo's user quota and predict the resulting responses before running it. Update the expected totals too; the current demonstration intentionally assumes 100 pages.
+
+## Filter the history
+
+Try `GET /print-jobs?userId=1&printerId=1&month=2026-09` with IDs from your database. All supplied filters must match. Omit a filter to broaden the results; omit all three to see the full history.
+
+The controller reads query parameters, the service validates them, and a JPA specification builds database conditions only for the supplied filters. The month range comes from the same calculation used for quotas. The database does the filtering before the service converts matching jobs into response DTOs.
+
+Checkpoint 9 stop point: explain why a job at midnight on 1 October in Hong Kong belongs to October even though its UTC timestamp is still 30 September. Then try two filters together in Swagger UI.

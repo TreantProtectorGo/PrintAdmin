@@ -5,6 +5,7 @@ import com.ethan.printadmin.dto.PrintJobResponse;
 import com.ethan.printadmin.service.PrintJobService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -36,7 +37,15 @@ public class PrintJobController {
         return service.createPrintJob(request);
     }
 
-    @Operation(summary = "List print jobs")
+    @Operation(summary = "List print jobs", description = "Optional filters combine with AND. Results are ordered by ID.")
+    @ApiResponse(responseCode = "400", description = "Invalid filter",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = ProblemDetail.class)))
     @GetMapping
-    public List<PrintJobResponse> getPrintJobs() { return service.getPrintJobs(); }
+    public List<PrintJobResponse> getPrintJobs(
+            @Parameter(description = "Positive user ID") @RequestParam(required = false) Long userId,
+            @Parameter(description = "Positive printer ID") @RequestParam(required = false) Long printerId,
+            @Parameter(description = "Calendar month in the quota timezone (default Asia/Hong_Kong)", example = "2026-09")
+            @RequestParam(required = false) String month) {
+        return service.getPrintJobs(userId, printerId, month);
+    }
 }
